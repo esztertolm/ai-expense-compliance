@@ -14,36 +14,44 @@ DEFAULT_INVOICE = (
 if "audit_state" not in st.session_state:
     st.session_state.audit_state = {}
 
-invoice_text = st.text_area("Invoice OCR text", value=DEFAULT_INVOICE, height=120)
+invoice_text = st.text_area("Invoice OCR text", value=DEFAULT_INVOICE, height=140)
 
 if st.button("Run audit"):
     state = analyze_invoice({"invoice_text": invoice_text})
     st.session_state.audit_state = state
 
-state = st.session_state.audit_state
+state = st.session_state.audit_state or {}
+
 if state:
+    st.subheader("Audit status")
+    st.write(f"Status: {state.get('status', 'pending')}")
+
     st.subheader("Extracted invoice data")
     st.json(state.get("extracted_data", {}))
 
     st.subheader("Red flags")
-    if state.get("red_flags"):
-        st.write(state["red_flags"])
+    red_flags = state.get("red_flags", [])
+    if red_flags:
+        for flag in red_flags:
+            st.warning(flag)
     else:
-        st.write("No compliance issues detected.")
+        st.success("No compliance issues detected.")
 
-    if state.get("needs_human_review"):
+    if state.get("red_flags"):
         st.warning("Human review is required before the invoice can be finalized.")
 
-        if st.button("Approve invoice"):
-            state["audit_decision"] = {"approved": True, "reason": "Approved by auditor"}
-            state = finalize_audit(state)
-            st.session_state.audit_state = state
-            st.success(state.get("final_message", ""))
-
-        if st.button("Reject invoice"):
-            state["audit_decision"] = {"approved": False, "reason": "Alcohol is not reimbursable under policy"}
-            state = finalize_audit(state)
-            st.session_state.audit_state = state
-            st.error(state.get("final_message", ""))
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Approve invoice"):
+                state["audit_decision"] = {"approved": True, "reason": "Approved by auditor"}
+                state = finalize_audit(state)
+                st.session_state.audit_state = state
+                st.success(state.get("final_message", ""))
+        with col2:
+            if st.button("Reject invoice"):
+                state["audit_decision"] = {"approved": False, "reason": "Alcohol is not reimbursable under policy"}
+                state = finalize_audit(state)
+                st.session_state.audit_state = state
+                st.error(state.get("final_message", ""))
     elif state.get("final_message"):
         st.success(state["final_message"])
