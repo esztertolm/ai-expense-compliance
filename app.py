@@ -45,13 +45,20 @@ if st.session_state.current_state:
     st.write(f"Status: {state.get('status', 'pending')}")
 
     st.subheader("Extracted invoice data")
-    st.json(state.get("extracted_data", {}))
+    extracted_data = state.get("extracted_data", {})
+    if extracted_data:
+        # Format the dictionary into a clean two-column table for better UI
+        table_data = {
+            "Field": [key.replace("_", " ").title() for key in extracted_data.keys()],
+            "Value": [str(value) for value in extracted_data.values()]
+        }
+        st.table(table_data)
 
     st.subheader("Red flags")
     red_flags = state.get("red_flags", [])
     if red_flags:
         for flag in red_flags:
-            st.warning(flag)
+            st.error(flag)
     else:
         st.success("No compliance issues detected.")
 
