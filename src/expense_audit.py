@@ -9,14 +9,9 @@ from pydantic import BaseModel, Field
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-try:
-    from langchain_groq import ChatGroq
-    from langchain_core.output_parsers import PydanticOutputParser
-    from langchain_core.prompts import PromptTemplate
-except ImportError:  # pragma: no cover - optional dependency
-    ChatGroq = None
-    PydanticOutputParser = None
-    PromptTemplate = None
+from langchain_groq import ChatGroq
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 
 load_dotenv()
 
