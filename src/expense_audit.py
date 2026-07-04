@@ -29,7 +29,7 @@ class ExtractedInvoice(BaseModel):
     """Extracted invoice data and automated compliance check flags."""
     vendor: str = Field(description="Name of the company or restaurant issuing the invoice.")
     date: str = Field(description="Date of the invoice in YYYY-MM-DD format.")
-    amount: int = Field(description="Gross total amount of the invoice (numbers only).")
+    amount: int = Field(description="The absolute final gross total amount (grand total) that the employee actually paid.")
     category: str = Field(description="Expense category (e.g., meals, travel, software, accommodation).")
     has_alcohol: bool = Field(description="True if alcohol (wine, beer, cocktails, spirits, etc.) is listed on the invoice.")
     is_weekend_or_late: bool = Field(description="True if the date falls on a weekend, or the transaction occurred late at night (after 22:00).")
@@ -54,6 +54,7 @@ def analyze_invoice(state: InvoiceAuditState) -> InvoiceAuditState:
     prompt_template = PromptTemplate(
         template=(
             "Analyze the following invoice text, extract data, and check compliance rules.\n\n"
+            "Identify all prices, but ensure the 'amount' field captures the final grand total paid.\n\n"
             "{format_instructions}\n\n"
             "Invoice Text:\n{invoice_text}"
         ),

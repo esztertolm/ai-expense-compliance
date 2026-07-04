@@ -25,7 +25,46 @@ if "current_state" not in st.session_state:
 if "next_node" not in st.session_state:
     st.session_state.next_node = None
 
-invoice_text = st.text_area("Invoice OCR text", value=DEFAULT_INVOICE, height=140)
+# Quick sample data for easy testing
+st.markdown("#### 💡 Quick Test Samples")
+sample_option = st.selectbox(
+    "Choose a sample invoice scenario to test:",
+    [
+        "Valid Invoice (Auto-Approve)",
+        "Violation: High Amount (Requires Review)",
+        "Violation: Weekend & Alcohol (Requires Review)",
+        "Complex Invoice: Multiple Prices (Requires Review)"
+    ]
+)
+
+# Dynamically change text based on selection
+if sample_option == "Valid Invoice (Auto-Approve)":
+    invoice_text_value = "Company: AWS Cloud Services, Date: 2026.07.01, Amount: 15200 HUF, Item: Monthly Server Hosting Subscription"
+elif sample_option == "Violation: High Amount (Requires Review)":
+    invoice_text_value = "Company: Apple Store, Date: 2026.07.02, Amount: 689000 HUF, Item: MacBook Pro 14-inch for Development"
+elif sample_option == "Complex Invoice: Multiple Prices (Requires Review)":
+    invoice_text_value = (
+    "INVOICE / RECEIPT\n"
+        "Vendor: TechComponent Ltd.\n"
+        "Date: 2026-07-04 (Saturday)\n"
+        "-------------------------------------\n"
+        "Items ordered:\n"
+        "1x Wireless Mouse - Unit Price: 12,000 HUF\n"
+        "1x Mechanical Keyboard - Unit Price: 25,000 HUF\n"
+        "-------------------------------------\n"
+        "SUBTOTAL (NET): 37,000 HUF\n"
+        "VAT / TAX (27%): 9,990 HUF\n"
+        "TOTAL GROSS AMOUNT DUE: 46,990 HUF\n"
+        "-------------------------------------\n"
+        "Payment Method: Corporate Credit Card\n"
+        "Thank you for your business!"
+    )
+elif sample_option == "Violation: Weekend & Alcohol (Requires Review)":
+    invoice_text_value = DEFAULT_INVOICE
+else:
+    invoice_text_value = DEFAULT_INVOICE
+
+invoice_text = st.text_area("Invoice OCR text", value=invoice_text_value, height=140)
 
 if st.button("Run audit"):
     # Kickstart the graph execution from scratch
