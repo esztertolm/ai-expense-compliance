@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
+from langgraph.checkpoint.memory import MemorySaver
 
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import PydanticOutputParser
@@ -150,4 +151,5 @@ def build_graph() -> StateGraph:
     )
     graph.add_edge("human_review", "finalize_audit")
     graph.add_edge("finalize_audit", END)
-    return graph.compile(name="expense_audit_graph")
+    memory = MemorySaver()
+    return graph.compile(checkpointer = memory, name="expense_audit_graph")
