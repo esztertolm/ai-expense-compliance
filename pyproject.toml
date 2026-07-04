@@ -1,0 +1,21 @@
+[project]
+name = "ai-expense-compliance"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "esztertolm",email = "eszter.tolmacsi@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0.0"
+dependencies = [
+    "langgraph (>=1.2.7,<2.0.0)",
+    "streamlit (>=1.58.0,<2.0.0)",
+    "pydantic (>=2.13.4,<3.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
