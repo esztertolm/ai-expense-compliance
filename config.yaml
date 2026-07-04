@@ -1,0 +1,29 @@
+default_invoice: |
+  Company: Luxury Restaurant, Date: 2026.07.03 (Friday) 23:45, 
+  Amount: 120000 HUF, Item: 2 x Ribeye steak, 1 bottle of premium wine
+
+samples:
+  "Valid Invoice (Auto-Approve)": |
+    Company: AWS Cloud Services, Date: 2026.07.01, Amount: 15200 HUF, Item: Monthly Server Hosting Subscription
+  
+  "Violation: High Amount (Requires Review)": |
+    Company: Apple Store, Date: 2026.07.02, Amount: 689000 HUF, Item: MacBook Pro 14-inch for Development
+  
+  "Violation: Weekend & Alcohol (Requires Review)": |
+    Company: Luxury Restaurant, Date: 2026.07.03 (Friday) 23:45, Amount: 120000 HUF, Item: 2 x Ribeye steak, 1 bottle of premium wine
+  
+  "Complex Invoice: Multiple Prices (Requires Review)": |
+    INVOICE / RECEIPT
+    Vendor: TechComponent Ltd.
+    Date: 2026-07-04 (Saturday)
+    -------------------------------------
+    Items ordered:
+    1x Wireless Mouse - Unit Price: 12,000 HUF
+    1x Mechanical Keyboard - Unit Price: 25,000 HUF
+    -------------------------------------
+    SUBTOTAL (NET): 37,000 HUF
+    VAT / TAX (27%): 9,990 HUF
+    TOTAL GROSS AMOUNT DUE: 46,990 HUF
+    -------------------------------------
+    Payment Method: Corporate Credit Card
+    Thank you for your business!

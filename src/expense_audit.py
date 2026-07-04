@@ -13,6 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+from src.db import save_audit_log
 
 load_dotenv()
 
@@ -111,29 +112,33 @@ def human_review(state: InvoiceAuditState) -> InvoiceAuditState:
 
 
 def finalize_audit(state: InvoiceAuditState) -> InvoiceAuditState:
-    """Closes the process and generates the final status message."""
+    """Closes the process, generates the final status message, and saves to DB."""
     vendor = state["extracted_data"].get("vendor", "Unknown")
+    amount = state["extracted_data"].get("amount", 0)
     
-    # Automatically approved if no red flags triggered the human review
+    # Generate the final state data
     if not state.get("audit_decision"):
-        return {
-            **state,
-            "status": "approved",
-            "final_message": f"Invoice from {vendor} automatically APPROVED by System Compliance."
-        }
-        
-    # If it went through human review
-    decision = state["audit_decision"]
-    if decision.get("approved"):
-        return {
-            **state,
-            "final_message": f"Invoice from {vendor} APPROVED by Manager. Note: {decision.get('reason', 'None')}"
-        }
+        status = "APPROVED"
+        reason = "Auto-approved by System Compliance"
+        final_message = f"Invoice from {vendor} automatically APPROVED by System Compliance."
     else:
-        return {
-            **state,
-            "final_message": f"Invoice from {vendor} REJECTED by Manager. Reason: {decision.get('reason', 'Policy violation')}"
-        }
+        decision = state["audit_decision"]
+        if decision.get("approved"):
+            status = "APPROVED"
+            reason = decision.get("reason", "None")
+            final_message = f"Invoice from {vendor} APPROVED by Manager. Note: {reason}"
+        else:
+            status = "REJECTED"
+            reason = decision.get("reason", "Policy violation")
+            final_message = f"Invoice from {vendor} REJECTED by Manager. Reason: {reason}"
+            
+    save_audit_log(vendor, amount, status, reason)
+
+    return {
+        **state,
+        "status": status.lower(),
+        "final_message": final_message
+    }
 
 
 def build_graph() -> StateGraph:
