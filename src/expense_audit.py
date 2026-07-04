@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
+from langgraph.types import interrupt
 
 
 class InvoiceAuditState(TypedDict, total=False):
@@ -11,6 +12,9 @@ class InvoiceAuditState(TypedDict, total=False):
     extracted_data: dict[str, Any]
     red_flags: list[str]
     audit_decision: dict[str, Any]
+    needs_human_review: bool
+    status: str
+    final_message: str
 
 
 @dataclass
@@ -59,19 +63,79 @@ def analyze_invoice(state: InvoiceAuditState) -> InvoiceAuditState:
         "category": extracted.category,
     }
     state["red_flags"] = extracted.red_flags
+    state["needs_human_review"] = bool(extracted.red_flags)
+    state["status"] = "pending_review" if extracted.red_flags else "approved"
     return state
 
 
-def review_rules(state: InvoiceAuditState) -> InvoiceAuditState:
-    state.setdefault("red_flags", [])
+def route_after_analysis(state: InvoiceAuditState) -> str:
+    red_flags = state.get("red_flags") or []
+    if state.get("needs_human_review") or bool(red_flags):
+        return "human_review"
+    return "finalize_audit"
+
+
+def build_review_message(state: InvoiceAuditState) -> str:
+    vendor = state.get("extracted_data", {}).get("vendor", "Unknown vendor")
+    decision = state.get("audit_decision", {})
+    approved = bool(decision.get("approved", False))
+    if approved:
+        return f"Invoice from {vendor} was approved by the auditor."
+
+    reason = decision.get("reason") or "Policy violation detected."
+    return f"Invoice from {vendor} was rejected. Reason: {reason}"
+
+
+def human_review(state: InvoiceAuditState) -> InvoiceAuditState:
+    if state.get("audit_decision"):
+        state["final_message"] = build_review_message(state)
+        state["status"] = "approved" if state["audit_decision"].get("approved") else "rejected"
+        return state
+
+    review_payload = {
+        "invoice": state.get("extracted_data", {}),
+        "red_flags": state.get("red_flags", []),
+        "message": "Please approve or reject this invoice.",
+    }
+    decision = interrupt(review_payload)
+    state["audit_decision"] = {
+        "approved": bool(decision.get("approved", False)),
+        "reason": decision.get("reason", ""),
+    }
+    state["final_message"] = build_review_message(state)
+    state["status"] = "approved" if state["audit_decision"].get("approved") else "rejected"
+    return state
+
+
+def finalize_audit(state: InvoiceAuditState) -> InvoiceAuditState:
+    decision = state.get("audit_decision") or {}
+    approved = bool(decision.get("approved", False))
+    reason = decision.get("reason") or ""
+
+    if approved:
+        state["final_message"] = "Invoice approved by auditor."
+        state["status"] = "approved"
+    else:
+        state["final_message"] = f"Invoice rejected by auditor. Reason: {reason or 'Policy violation detected.'}"
+        state["status"] = "rejected"
+
     return state
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(InvoiceAuditState)
     graph.add_node("analyze_invoice", analyze_invoice)
-    graph.add_node("review_rules", review_rules)
+    graph.add_node("human_review", human_review)
+    graph.add_node("finalize_audit", finalize_audit)
     graph.set_entry_point("analyze_invoice")
-    graph.add_edge("analyze_invoice", "review_rules")
-    graph.add_edge("review_rules", END)
+    graph.add_conditional_edges(
+        "analyze_invoice",
+        route_after_analysis,
+        {
+            "human_review": "human_review",
+            "finalize_audit": "finalize_audit",
+        },
+    )
+    graph.add_edge("human_review", "finalize_audit")
+    graph.add_edge("finalize_audit", END)
     return graph.compile(name="expense_audit_graph")
