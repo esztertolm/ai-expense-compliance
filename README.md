@@ -36,7 +36,7 @@ An enterprise-grade **Human-in-the-Loop (HITL)** AI agent for automated corporat
 ### 3. Clone & Setup
 
 ```bash
-git clone https://github.com/yourusername/ai-expense-compliance.git
+git clone https://github.com/esztertolm/ai-expense-compliance.git
 cd ai-expense-compliance
 ```
 
