@@ -4,6 +4,7 @@ from langgraph.types import Command
 import uuid
 from src.db import init_db, get_audit_history
 import yaml
+from src.document_parser import extract_text_from_pdf, encode_image_to_base64
 
 init_db()
 
@@ -36,19 +37,34 @@ with tab_audit:
     if "next_node" not in st.session_state:
         st.session_state.next_node = None
 
-    # Quick sample data selectbox generated dynamically from the YAML file keys
-    sample_option = st.selectbox(
-        "Choose a sample invoice scenario to test:",
-        options=list(MOCK_SAMPLES.keys())
-    )
+    st.markdown("### 📥 Input Invoice Data")
 
-    # Automatically fetch text mappings without complex nested conditional blocks
-    invoice_text_value = MOCK_SAMPLES.get(sample_option, DEFAULT_INVOICE)
+    # 1. Provide the file uploader for PDFs
+    uploaded_file = st.file_uploader("Upload a Digital Invoice (PDF or image)", type=["pdf", "png", "jpg"])
+    
+    image_base64 = None
+    invoice_text_value = ""
+
+    if uploaded_file is not None:
+        if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+            st.info(f"📸 Image '{uploaded_file.name}' uploaded. It will be processed using Llama Vision AI.")
+            image_base64 = encode_image_to_base64(uploaded_file)
+            invoice_text_value = "[Image uploaded - Text will be extracted via Vision LLM]"
+        else:
+            st.info(f"📄 PDF '{uploaded_file.name}' uploaded. Extracting text...")
+            invoice_text_value = extract_text_from_pdf(uploaded_file)
+    else:
+        sample_option = st.selectbox("Or choose a sample invoice scenario to test:", options=list(MOCK_SAMPLES.keys()))
+        invoice_text_value = MOCK_SAMPLES.get(sample_option, DEFAULT_INVOICE)
+
     invoice_text = st.text_area("Invoice OCR text", value=invoice_text_value, height=140)
 
     if st.button("Run audit"):
         # Kickstart the graph execution from scratch
-        inputs = {"invoice_text": invoice_text}
+        inputs = {
+            "invoice_text": invoice_text,
+            "invoice_image": image_base64
+        }
         st.session_state.graph.invoke(inputs, st.session_state.config)
         
         # Retrieve the state snapshot directly from the graph engine
