@@ -4,7 +4,8 @@ from langgraph.types import Command
 import uuid
 from src.db import init_db, get_audit_history
 import yaml
-from src.document_parser import extract_text_from_pdf, encode_image_to_base64
+from src.document_parser import extract_text_from_pdf, encode_uploaded_image_to_base64, encode_local_image_to_base64
+import os
 
 init_db()
 
@@ -14,6 +15,7 @@ with open("config.yaml", "r", encoding="utf-8") as file:
 
 # Extract structured definitions from the loaded dictionary
 MOCK_SAMPLES = config_data.get("samples", {})
+MOCK_IMAGES = config_data.get("image_samples", {})
 DEFAULT_INVOICE = config_data.get("default_invoice", "")
 
 st.set_page_config(layout="wide")
@@ -48,14 +50,31 @@ with tab_audit:
     if uploaded_file is not None:
         if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
             st.info(f"📸 Image '{uploaded_file.name}' uploaded. It will be processed using Vision AI.")
-            image_base64 = encode_image_to_base64(uploaded_file)
+            image_base64 = encode_uploaded_image_to_base64(uploaded_file)
             invoice_text_value = "[Image uploaded - Text will be extracted via Vision LLM]"
         else:
             st.info(f"📄 PDF '{uploaded_file.name}' uploaded. Extracting text...")
             invoice_text_value = extract_text_from_pdf(uploaded_file)
     else:
-        sample_option = st.selectbox("Or choose a sample invoice scenario to test:", options=list(MOCK_SAMPLES.keys()))
-        invoice_text_value = MOCK_SAMPLES.get(sample_option, DEFAULT_INVOICE)
+        sample_type = st.radio("Select Sample Type:", ["Text / PDF Scenarios", "Real Image Scenarios"], horizontal=True)
+
+        if sample_type == "Text / PDF Scenarios":
+            sample_option = st.selectbox("Choose a sample invoice scenario to test:", options=list(MOCK_SAMPLES.keys()))
+            invoice_text_value = MOCK_SAMPLES.get(sample_option, DEFAULT_INVOICE)
+        
+        else:
+            image_option = st.selectbox("Choose a sample receipt image to test:", options=list(MOCK_IMAGES.keys()))
+            image_path = MOCK_IMAGES.get(image_option)
+            
+            # Dynamically read the local image file and
+            if image_path and os.path.exists(image_path):
+                image_base64 = encode_local_image_to_base64(image_path)
+                invoice_text_value = f"[Sample Image Linked: {image_option} - Vision AI will process this]"
+                
+                # Visual bonus: Display the sample image thumbnail in the sidebar or UI so the user sees it
+                st.image(image_path, caption="Selected Sample Receipt Thumbnail", width=200)
+            else:
+                st.warning(f"Sample image not found at path: {image_path}. Please check your project folders.")
 
     invoice_text = st.text_area("Invoice OCR text", value=invoice_text_value, height=140)
 
