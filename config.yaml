@@ -27,3 +27,7 @@ samples:
     -------------------------------------
     Payment Method: Corporate Credit Card
     Thank you for your business!
+
+image_samples:
+  "Lidl Receipt - Alcoholic (Vision Test)": "sample_images/lidl_alcoholic.png"
+  "Lidl Receipt - Clean (Vision Test)": "sample_images/lidl_clean.png"

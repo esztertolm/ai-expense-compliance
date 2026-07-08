@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, TypedDict
-
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
@@ -13,67 +10,64 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage
+
 from src.db import save_audit_log
+from src.schemas import InvoiceAuditState, ExtractedInvoice
+from src.rules import check_compliance_rules
 
 load_dotenv()
 
-class InvoiceAuditState(TypedDict, total=False):
-    invoice_text: str
-    extracted_data: dict[str, Any]
-    red_flags: list[str]
-    audit_decision: dict[str, Any]
-    needs_human_review: bool
-    status: str
-    final_message: str
-
-class ExtractedInvoice(BaseModel):
-    """Extracted invoice data and automated compliance check flags."""
-    vendor: str = Field(description="Name of the company or restaurant issuing the invoice.")
-    date: str = Field(description="Date of the invoice in YYYY-MM-DD format.")
-    amount: int = Field(description="The absolute final gross total amount (grand total) that the employee actually paid.")
-    category: str = Field(description="Expense category (e.g., meals, travel, software, accommodation).")
-    has_alcohol: bool = Field(description="True if alcohol (wine, beer, cocktails, spirits, etc.) is listed on the invoice.")
-    is_weekend_or_late: bool = Field(description="True if the date falls on a weekend, or the transaction occurred late at night (after 22:00).")
-
-
 def analyze_invoice(state: InvoiceAuditState) -> InvoiceAuditState:
-    """
-    Extracts structured invoice data using LLM and flags corporate compliance violations.
-    
-    Raises:
-        ValueError: If the GROQ_API_KEY environment variable is not set.
-    """
     invoice_text = state["invoice_text"]
+    invoice_image = state.get("invoice_image")
 
     if not os.getenv("GROQ_API_KEY"):
-        raise ValueError("Missing GROQ_API_KEY! Please add it to your .env file or set it in your environment variables.")
+        raise ValueError("Missing GROQ_API_KEY!")
         
-
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
     parser = PydanticOutputParser(pydantic_object=ExtractedInvoice)
+    format_instructions = parser.get_format_instructions()
 
-    prompt_template = PromptTemplate(
-        template=(
-            "Analyze the following invoice text, extract data, and check compliance rules.\n\n"
+
+    if invoice_image:
+        llm = ChatGroq(model="qwen/qwen3.6-27b", temperature=0)
+
+        vision_instruction = (
+            "Analyze the invoice data, extract fields, and check compliance rules based on the attached photo.\n\n"
             "Identify all prices, but ensure the 'amount' field captures the final grand total paid.\n\n"
-            "{format_instructions}\n\n"
-            "Invoice Text:\n{invoice_text}"
-        ),
-        input_variables=["invoice_text"],
-        partial_variables={"format_instructions": parser.get_format_instructions()},
-    )
+            "CRITICAL: You must return ONLY a raw JSON code block matching the schema below.\n"
+            "Do NOT include any conversational text, explanations, markdown headers, or introductory notes.\n"
+            "Just the valid JSON object itself.\n\n"
+            f"REQUIRED JSON SCHEMA:\n{format_instructions}"
+        )
 
-    chain = prompt_template | llm | parser
-    result = chain.invoke({"invoice_text": invoice_text})
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": vision_instruction},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{invoice_image}"}},
+            ]
+        )
+        response = llm.invoke([message])
+        result = parser.parse(response.content)
 
+    else:
+        llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+        
+        system_instruction = (
+            "Analyze the invoice data, extract fields, and check compliance rules.\n\n"
+            "Identify all prices, but ensure the 'amount' field captures the final grand total paid.\n\n"
+            f"{format_instructions}"
+        )
+        prompt_template = PromptTemplate(
+            template="{system_instruction}\n\nInvoice Text:\n{invoice_text}",
+            input_variables=["invoice_text"],
+            partial_variables={"system_instruction": system_instruction},
+        )
+        chain = prompt_template | llm | parser
+        result = chain.invoke({"invoice_text": invoice_text})
 
-    red_flags = []
-    if result.has_alcohol:
-        red_flags.append("Compliance Policy Violation: Alcohol detected on invoice.")
-    if result.is_weekend_or_late:
-        red_flags.append("Audit Warning: Expense incurred during weekend or late night.")
-    if result.amount >= 50000:
-        red_flags.append("Approval Limit Exceeded: Amount is 50,000 or higher.")
+    # Use the extracted rules engine
+    red_flags = check_compliance_rules(result)
 
     return {
         **state,
