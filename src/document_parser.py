@@ -24,6 +24,7 @@ def encode_uploaded_image_to_base64(uploaded_file):
     return base64.b64encode(uploaded_file.read()).decode("utf-8")
 
 def encode_local_image_to_base64(image_path):
+    """Converts a local image file into a Base64 string for the Vision API."""
     with open(image_path, "rb") as img_file:
         image_base64 = base64.b64encode(img_file.read()).decode("utf-8")
     return image_base64
