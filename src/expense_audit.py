@@ -30,10 +30,11 @@ def analyze_invoice(state: InvoiceAuditState) -> InvoiceAuditState:
 
 
     if invoice_image:
-        llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0)
+        llm = ChatGroq(model="qwen/qwen3.6-27b", temperature=0)
 
         vision_instruction = (
-            "You are a strict financial data extractor. Analyze the attached invoice image.\n"
+            "Analyze the invoice data, extract fields, and check compliance rules based on the attached photo.\n\n"
+            "Identify all prices, but ensure the 'amount' field captures the final grand total paid.\n\n"
             "CRITICAL: You must return ONLY a raw JSON code block matching the schema below.\n"
             "Do NOT include any conversational text, explanations, markdown headers, or introductory notes.\n"
             "Just the valid JSON object itself.\n\n"

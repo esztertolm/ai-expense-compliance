@@ -47,7 +47,7 @@ with tab_audit:
 
     if uploaded_file is not None:
         if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-            st.info(f"📸 Image '{uploaded_file.name}' uploaded. It will be processed using Llama Vision AI.")
+            st.info(f"📸 Image '{uploaded_file.name}' uploaded. It will be processed using Vision AI.")
             image_base64 = encode_image_to_base64(uploaded_file)
             invoice_text_value = "[Image uploaded - Text will be extracted via Vision LLM]"
         else:
