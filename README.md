@@ -6,7 +6,9 @@ An enterprise-grade **Human-in-the-Loop (HITL)** AI agent for automated corporat
 
 ## ✨ Features
 
+- **📄 Upload receipts and invoices**: Supports both PDF files and image uploads (PNG/JPG) for document intake.
 - **📋 Smart Invoice Extraction**: Automatically parses OCR invoice text and extracts vendor, date, amount, and category using LLM.
+- **🖼️ Image-based processing**: For uploaded images, the system uses vision-enabled analysis to interpret the receipt or invoice visually.
 - **🚩 Compliance Rule Engine**: Detects policy violations including:
   - Alcohol on receipt (non-reimbursable)
   - Weekend or late-night expenses
@@ -63,20 +65,30 @@ poetry run streamlit run app.py
 
 The UI will open at `http://localhost:8501`.
 
+### 7. Use the Upload Flow
+
+- Open the app in your browser.
+- In the audit tab, upload a PDF or a PNG/JPG image of an invoice or receipt.
+- The app will either extract text from the PDF or analyze the uploaded image with vision AI.
+- Review the extracted data and any compliance warnings, then approve or reject the invoice.
+- You can also try built-in sample scenarios from the UI if you do not want to upload a file.
+
 ---
 
 ## 📖 How It Works
 
 ### Workflow (LangGraph)
 
+The current implementation uses a stateful LangGraph graph where invoice input is analyzed first, then routed based on detected compliance issues. If red flags are found, execution pauses at the human review step for an auditor decision; otherwise the invoice is auto-finalized and saved.
+
 ```mermaid
 graph TD
-    START([OCR Text Input]) --> A[analyze_invoice <br><i>Data Extraction & Red Flags</i>]
-    A --> B{Compliance Router}
-    B -- No Flags --> D[finalize_audit <br><i>AUTO APPROVE</i>]
-    B -- Red Flags Detected --> C[human_review <br><i>PAUSE FOR AUDITOR</i>]
+    START([Invoice Input<br/><i>PDF / image / text</i>]) --> A[analyze_invoice<br/><i>Extract fields + red flags</i>]
+    A --> R[route_after_analysis]
+    R -- No Red Flags --> D[finalize_audit<br/><i>Auto-approve and save</i>]
+    R -- Red Flags Detected --> C[human_review<br/><i>Interrupt for auditor decision</i>]
     C -- Approve / Reject --> D
-    D --> E[(audit_logs.db <br><i>Save History</i>)]
+    D --> E[(audit_logs.db<br/><i>Persist audit result</i>)]
     E --> END([END])
 
     style C fill:#fff3cd,stroke:#ffc107,stroke-width:2px
@@ -104,17 +116,21 @@ Amount: 120,000 HUF, Item: 2 x Ribeye steak, 1 bottle of premium wine
 
 ```
 ai-expense-compliance/
-├── src/
-│   ├── expense_audit.py       # LangGraph workflow, state, nodes
-│   └── db.py                  # SQLite persistence for audit history
-├── tests/
-│   └── test_workflow.py       # Unit tests
-├── app.py                     # Streamlit UI
+├── app.py                     # Streamlit UI and upload flow
 ├── config.yaml                # Sample invoice scenarios and defaults
-├── audit_logs.db              # Local SQLite database used for audit history
-├── .env                       # Environment variables (API keys)
-├── pyproject.toml             # Poetry config
-└── README.md                  # This file
+├── pyproject.toml             # Poetry configuration and dependencies
+├── README.md                  # Project documentation
+├── sample_images/             # Example receipt / invoice images
+├── src/
+│   ├── __init__.py
+│   ├── db.py                  # SQLite persistence for audit history
+│   ├── document_parser.py     # PDF text extraction and image encoding helpers
+│   ├── expense_audit.py       # LangGraph workflow, state, and audit logic
+│   ├── rules.py               # Compliance rules
+│   └── schemas.py             # Data models for extracted invoice information
+├── tests/
+│   └── test_workflow.py       # Workflow tests
+└── audit_logs.db              # Local SQLite database used for audit history
 ```
 
 ## 🗄️ Data Persistence & Audit Trail
