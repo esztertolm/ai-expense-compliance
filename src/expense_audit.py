@@ -51,7 +51,7 @@ def analyze_invoice(state: InvoiceAuditState) -> InvoiceAuditState:
         result = parser.parse(response.content)
 
     else:
-        llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+        llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
         
         system_instruction = (
             "Analyze the invoice data, extract fields, and check compliance rules.\n\n"
